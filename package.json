@@ -1,0 +1,33 @@
+{
+  "name": "@zekstament/contracts",
+  "version": "1.0.0",
+  "description": "Ethereum powered Zero Knowledge Testament of Crypto Assets",
+  "main": "index.js",
+  "author": "Rohit Narurkar",
+  "license": "LGPL-3.0",
+  "private": true,
+  "devDependencies": {
+    "@truffle/hdwallet-provider": "^1.0.29",
+    "dotenv": "^8.2.0",
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.20.0",
+    "ganache-cli": "^6.8.2",
+    "solc": "^0.6.1",
+    "solhint": "^2.3.0",
+    "solidity-coverage": "^0.7.1",
+    "truffle": "^5.1.9",
+    "truffle-assertions": "^0.9.2",
+    "web3": "^1.2.5-rc.0",
+    "web3-utils": "^1.2.5-rc.0"
+  },
+  "dependencies": {
+    "@aztec/protocol": "^1.6.0",
+    "aztec.js": "^0.17.0"
+  },
+  "scripts": {
+    "lint": "yarn lint:js && yarn lint:sol",
+    "lint:js": "eslint --ignore-path .eslintignore .",
+    "lint:sol": "solhint --ignore-path .solhintignore 'contracts/**/*.sol'"
+  }
+}
