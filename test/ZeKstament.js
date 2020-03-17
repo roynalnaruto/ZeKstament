@@ -5,8 +5,6 @@ const {
 
 const secp256k1 = require('@aztec/secp256k1');
 
-const { proofs } = require('@aztec/dev-utils');
-
 const timeMachine = require('ganache-time-traveler');
 
 const {
@@ -38,7 +36,7 @@ contract('ZeKstament', () => {
   describe('Deployment of ZeKstament', () => {
     it('[initializes the ACE address correctly]', async () => {
       assert.deepEqual(
-        await contracts.zekstament.ace.call(),
+        await contracts.zekstament.aceAddress.call(),
         contracts.ace.address,
       );
     });
@@ -78,21 +76,31 @@ contract('ZeKstament', () => {
       const data = proof.encodeABI(contracts.joinSplit.address);
 
       // call should return true
+      const testamentId = web3.utils.soliditySha3(
+        { type: 'address', value: aztecAccounts.bob.address },
+        { type: 'address', value: contracts.zkAsset.address },
+      );
+
       assert.deepEqual(
         await contracts.zekstament.createTestament.call(
-          proofs.JOIN_SPLIT_PROOF,
+          contracts.zkAsset.address,
           data,
           { from: aztecAccounts.bob.address },
         ),
-        true,
+        testamentId,
       );
 
       // broadcast tx to create testament
       await contracts.zekstament.createTestament(
-        proofs.JOIN_SPLIT_PROOF,
+        contracts.zkAsset.address,
         data,
         { from: aztecAccounts.bob.address },
       );
+
+      const testament = await contracts.zekstament.getTestament.call(testamentId);
+      assert.deepEqual(testament[0], aztecAccounts.bob.address);
+      assert.deepEqual(testament[1], contracts.zkAsset.address);
+      assert.deepEqual(testament[2], data);
     });
   });
 });
