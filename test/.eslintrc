@@ -1,0 +1,19 @@
+{
+    "env": {
+        "mocha": true
+    },
+    "extends": ["../.eslintrc"],
+    "globals": {
+        "artifacts": true,
+        "contract": true,
+        "describe": true,
+        "it": true,
+        "web3": true,
+        "assert": true
+    },
+    "rules": {
+        "func-names": "off",
+        "prefer-destructuring": "off",
+        "no-param-reassign": [2, { "props": false }]
+    }
+}

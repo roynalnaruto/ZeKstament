@@ -1,0 +1,10 @@
+{
+    "extends": ["../.eslintrc"],
+    "globals": {
+        "artifacts": true
+    },
+    "rules": {
+        "func-names": "off",
+        "prefer-destructuring": "off"
+    }
+}

@@ -43,7 +43,7 @@ module.exports = {
   networks: {
     development: {
       host: "127.0.0.1",
-      gas: "6000000",
+      gas: "10000000",
       gasPrice: toHex(toWei("1", "gwei")),
       network_id: "*",
       port: "8545",
