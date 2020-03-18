@@ -2,43 +2,139 @@ pragma solidity 0.5.11;
 
 import "@aztec/protocol/contracts/interfaces/IACE.sol";
 import "@aztec/protocol/contracts/interfaces/IAZTEC.sol";
+import "@aztec/protocol/contracts/interfaces/IZkAsset.sol";
+
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+
+import "./libs/AddressArrayUtils.sol";
 
 
 contract ZeKstament is Ownable {
 
+    using AddressArrayUtils for address[];
+
     struct Testament {
         address testator;
+        address[] nominees;
         address zkAssetAddress;
+        uint256 lastActive;
+        bool isActive;
         bytes proofData;
     }
 
     address public aceAddress;
 
+    uint256 public unlockWhenInactiveFor;
+
     mapping (bytes32 => Testament) private testaments;
+
+    modifier onlyTestator(bytes32 _testamentId) {
+        require(msg.sender == testaments[_testamentId].testator, "Caller not testator");
+        _;
+    }
+
+    modifier onlyNominee(bytes32 _testamentId) {
+        bool _exists;
+        (, _exists) = testaments[_testamentId].nominees.indexOf(msg.sender);
+        require(_exists == true, "Caller not among nominees");
+        _;
+    }
 
     constructor(address _aceAddress) public Ownable() {
         aceAddress = _aceAddress;
+        unlockWhenInactiveFor = 52 weeks;
     }
 
     function createTestament(
         address _zkAssetAddress,
+        address[] memory _nominees,
         bytes memory _proofData
-    ) public returns (bytes32) {
+    )
+        public
+        returns (bytes32 _testamentId)
+    {
         IACE(aceAddress).validateProof(
             IAZTEC(aceAddress).JOIN_SPLIT_PROOF(),
-            msg.sender, _proofData
+            msg.sender,
+            _proofData
         );
 
-        bytes32 _testamentId = keccak256(abi.encodePacked(msg.sender, _zkAssetAddress));
+        _testamentId = keccak256(abi.encodePacked(msg.sender, _zkAssetAddress));
 
         testaments[_testamentId] = Testament({
             testator: msg.sender,
             zkAssetAddress: _zkAssetAddress,
+            nominees: _nominees,
+            lastActive: block.timestamp,
+            isActive: true,
             proofData: _proofData
         });
 
         return _testamentId;
+    }
+
+    function updateTestament(
+        bytes32 _testamentId,
+        address[] memory _nominees,
+        bytes memory _proofData
+    )
+        public
+        onlyTestator(_testamentId)
+        returns (bool)
+    {
+        IACE(aceAddress).validateProof(
+            IAZTEC(aceAddress).JOIN_SPLIT_PROOF(),
+            msg.sender,
+            _proofData
+        );
+
+        testaments[_testamentId].nominees = _nominees;
+        testaments[_testamentId].lastActive = block.timestamp;
+        testaments[_testamentId].proofData = _proofData;
+
+        return true;
+    }
+
+    function declareActive(bytes32 _testamentId)
+        public
+        onlyTestator(_testamentId)
+        returns (bool)
+    {
+        require(testaments[_testamentId].isActive == true, "Testament is inactive");
+
+        testaments[_testamentId].lastActive = block.timestamp;
+        return true;
+    }
+
+    function unlockTestament(bytes32 _testamentId)
+        public
+        onlyNominee(_testamentId)
+        returns (bool)
+    {
+        require(testaments[_testamentId].isActive == true, "Testament is inactive");
+
+        require(
+            block.timestamp - testaments[_testamentId].lastActive > unlockWhenInactiveFor,
+            "Testator is still alive"
+        );
+
+        IZkAsset(testaments[_testamentId].zkAssetAddress).confidentialTransfer(
+            IAZTEC(aceAddress).JOIN_SPLIT_PROOF(),
+            testaments[_testamentId].proofData, ""
+        );
+
+        testaments[_testamentId].isActive = false;
+
+        return true;
+    }
+
+    function updateUnlockWhenInactiveFor(uint256 _newUnlockWhenInactiveFor)
+        public
+        onlyOwner()
+        returns (bool)
+    {
+        unlockWhenInactiveFor = _newUnlockWhenInactiveFor;
+        return true;
     }
 
     function getTestament(bytes32 _testamentId)
