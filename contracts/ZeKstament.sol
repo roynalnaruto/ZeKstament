@@ -3,6 +3,7 @@ pragma solidity 0.5.11;
 import "@aztec/protocol/contracts/interfaces/IACE.sol";
 import "@aztec/protocol/contracts/interfaces/IAZTEC.sol";
 import "@aztec/protocol/contracts/interfaces/IZkAsset.sol";
+import "@aztec/protocol/contracts/libs/NoteUtils.sol";
 
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
@@ -12,6 +13,7 @@ import "./libs/AddressArrayUtils.sol";
 contract ZeKstament is Ownable {
 
     using AddressArrayUtils for address[];
+    using NoteUtils for bytes;
 
     struct Testament {
         address testator;
@@ -19,7 +21,7 @@ contract ZeKstament is Ownable {
         address zkAssetAddress;
         uint256 lastActive;
         bool isActive;
-        bytes proofData;
+        bytes proofOutputs;
     }
 
     address public aceAddress;
@@ -53,7 +55,7 @@ contract ZeKstament is Ownable {
         public
         returns (bytes32 _testamentId)
     {
-        IACE(aceAddress).validateProof(
+        bytes memory _proofOutputs = IACE(aceAddress).validateProof(
             IAZTEC(aceAddress).JOIN_SPLIT_PROOF(),
             msg.sender,
             _proofData
@@ -67,7 +69,7 @@ contract ZeKstament is Ownable {
             nominees: _nominees,
             lastActive: block.timestamp,
             isActive: true,
-            proofData: _proofData
+            proofOutputs: _proofOutputs
         });
 
         return _testamentId;
@@ -82,7 +84,7 @@ contract ZeKstament is Ownable {
         onlyTestator(_testamentId)
         returns (bool)
     {
-        IACE(aceAddress).validateProof(
+        bytes memory _proofOutputs = IACE(aceAddress).validateProof(
             IAZTEC(aceAddress).JOIN_SPLIT_PROOF(),
             msg.sender,
             _proofData
@@ -90,7 +92,7 @@ contract ZeKstament is Ownable {
 
         testaments[_testamentId].nominees = _nominees;
         testaments[_testamentId].lastActive = block.timestamp;
-        testaments[_testamentId].proofData = _proofData;
+        testaments[_testamentId].proofOutputs = _proofOutputs;
 
         return true;
     }
@@ -118,10 +120,13 @@ contract ZeKstament is Ownable {
             "Testator is still alive"
         );
 
-        IZkAsset(testaments[_testamentId].zkAssetAddress).confidentialTransfer(
-            IAZTEC(aceAddress).JOIN_SPLIT_PROOF(),
-            testaments[_testamentId].proofData, ""
-        );
+        uint _proofOutputsLength = testaments[_testamentId].proofOutputs.getLength();
+        for (uint i = 0; i < _proofOutputsLength; i++) {
+            IZkAsset(testaments[_testamentId].zkAssetAddress).confidentialTransferFrom(
+                IAZTEC(aceAddress).JOIN_SPLIT_PROOF(),
+                testaments[_testamentId].proofOutputs.get(i)
+            );
+        }
 
         testaments[_testamentId].isActive = false;
 
@@ -142,12 +147,18 @@ contract ZeKstament is Ownable {
         view
         returns (
             address _testator,
+            address[] memory _nominees,
             address _zkAssetAddress,
-            bytes memory _proofData
+            uint256 _lastActive,
+            bool _isActive,
+            bytes memory _proofOutputs
         )
     {
         _testator = testaments[_testamentId].testator;
+        _nominees = testaments[_testamentId].nominees;
         _zkAssetAddress = testaments[_testamentId].zkAssetAddress;
-        _proofData = testaments[_testamentId].proofData;
+        _lastActive = testaments[_testamentId].lastActive;
+        _isActive = testaments[_testamentId].isActive;
+        _proofOutputs = testaments[_testamentId].proofOutputs;
     }
 }
